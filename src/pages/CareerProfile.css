@@ -1,0 +1,170 @@
+.cp-page { padding: 40px 0 64px; }
+
+.cp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  gap: 24px;
+}
+
+.cp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: rgba(79,70,229,0.08);
+  border: 1px solid rgba(79,70,229,0.15);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.cp-header h1 {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.cp-header p {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.cp-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.cp-left, .cp-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cp-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cp-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: white;
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cp-identity-info h2 { font-size: 18px; font-weight: 700; }
+.cp-identity-info p { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.cp-year { color: var(--text-muted) !important; }
+.cp-skill-level { margin-left: auto; }
+
+.cp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--accent);
+}
+
+.cp-card-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cp-direction-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cp-direction-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-light);
+  border-radius: var(--radius-md);
+  margin-bottom: 4px;
+}
+
+.cp-direction-row.target { background: rgba(79,70,229,0.06); }
+
+.cp-direction-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.cp-direction-value { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.cp-direction-value.highlight { color: var(--accent); }
+
+.cp-direction-arrow {
+  text-align: center;
+  font-size: 20px;
+  color: var(--text-muted);
+  margin: 2px 0;
+}
+
+.cp-goals { display: flex; flex-direction: column; gap: 12px; }
+.cp-goal { background: var(--bg-light); padding: 12px; border-radius: var(--radius-md); }
+.cp-goal-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 4px; display: block; }
+.cp-goal p { font-size: 14px; color: var(--text-secondary); }
+
+.cp-insight { background: linear-gradient(135deg, var(--bg-white) 0%, rgba(79,70,229,0.02) 100%); }
+.cp-insight-text { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+
+.cp-skill-cat { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; }
+.cp-skills-group { display: flex; flex-direction: column; gap: 16px; }
+
+.cp-gap-note { font-size: 13px; color: var(--text-muted); }
+
+.cp-resume-analyzed .cp-resume-score { display: flex; align-items: center; gap: 16px; }
+
+.score-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.score-circle span { font-size: 20px; font-weight: 800; line-height: 1; }
+.score-circle small { font-size: 10px; opacity: 0.7; }
+.score-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.score-file { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+.cp-resume-empty { display: flex; flex-direction: column; gap: 12px; }
+.cp-resume-empty p { font-size: 14px; color: var(--text-muted); }
+
+.cp-next-step {
+  background: linear-gradient(135deg, rgba(79,70,229,0.04) 0%, rgba(108,63,197,0.06) 100%);
+  border-color: rgba(79,70,229,0.15);
+}
+
+.cp-next-step h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.cp-next-step p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
+@media (max-width: 1024px) {
+  .cp-grid { grid-template-columns: 1fr; }
+  .cp-left { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  .cp-left { grid-template-columns: 1fr; }
+  .cp-header { flex-direction: column; }
+}
