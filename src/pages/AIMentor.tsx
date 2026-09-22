@@ -1,20 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   BrainCircuit, Send, Mic, MicOff, Volume2, VolumeX,
-  RotateCcw, Sparkles, User
+  RotateCcw, Sparkles, User, Code2, FileText,
+  Briefcase, TrendingUp, Map, CheckCircle
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { useApp } from '../context/AppContext';
 import { sendChatMessage, type AIMessage } from '../services/aiService';
+import { buildSidebarSnapshot, type CareerHubSnapshot } from '../services/mentorContext';
 import './AIMentor.css';
 
 const SUGGESTIONS = [
   'What should I learn next?',
-  'Which projects should I build?',
-  'How do I prepare for interviews?',
+  'Which project should I build?',
   'What skills am I missing?',
   'How can I improve my resume?',
-  'What is my career readiness level?',
+  'How did I perform in my last interview?',
+  'Give me a 30-day action plan.',
 ];
 
 interface Message {
@@ -25,7 +27,14 @@ interface Message {
 }
 
 export default function AIMentor() {
-  const { profile } = useApp();
+  const {
+    profile,
+    resumeAnalysis,
+    roadmapStages,
+    codingStats,
+    interviewHistory,
+  } = useApp();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,14 +45,37 @@ export default function AIMentor() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  // Build the full Career Hub snapshot for context injection
+  const hub: CareerHubSnapshot = {
+    profile,
+    resumeAnalysis,
+    roadmapStages,
+    codingStats,
+    interviewHistory,
+  };
+
+  const sidebar = buildSidebarSnapshot(hub);
+
   useEffect(() => {
     setVoiceSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
     setTtsSupported('speechSynthesis' in window);
 
-    // Welcome message
-    const welcomeText = profile
-      ? `Hello ${profile.name}! I'm your Career Copilot AI Mentor. I know you're working toward becoming a ${profile.targetRole}. How can I help you today?`
-      : "Hello! I'm your Career Copilot AI Mentor — your personalized guide from learning to career readiness. What would you like to explore today?";
+    // Welcome message — personalised but not verbose
+    let welcomeText: string;
+    if (!profile) {
+      welcomeText = "Hello! I'm your Career Copilot AI Mentor. Complete your onboarding profile to unlock personalized career guidance. What would you like to explore?";
+    } else {
+      const inProgress = roadmapStages.find(s => s.status === 'in_progress');
+      const completedCount = roadmapStages.filter(s => s.status === 'completed').length;
+
+      if (inProgress) {
+        welcomeText = `Hello ${profile.name}! You're currently working on **${inProgress.title}**. Ask me anything about your next steps, skill gaps, projects, or interview prep.`;
+      } else if (completedCount > 0) {
+        welcomeText = `Hello ${profile.name}! You've completed ${completedCount} roadmap stage${completedCount > 1 ? 's' : ''} toward **${profile.targetRole}**. What would you like to work on next?`;
+      } else {
+        welcomeText = `Hello ${profile.name}! I'm your Career Copilot AI Mentor, guiding your path to **${profile.targetRole}**. Ask me about what to learn, which projects to build, or how to prepare for interviews.`;
+      }
+    }
 
     setMessages([{
       id: 'welcome',
@@ -51,6 +83,7 @@ export default function AIMentor() {
       content: welcomeText,
       timestamp: new Date(),
     }]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -77,15 +110,15 @@ export default function AIMentor() {
         .map(m => ({ role: m.role, content: m.content }));
       history.push({ role: 'user', content: text.trim() });
 
-      const response = await sendChatMessage(history, profile || null);
+      // Pass full Career Hub snapshot — the service retrieves only what's relevant
+      const response = await sendChatMessage(history, profile || null, hub);
 
-      const aiMsg: Message = {
+      setMessages(prev => [...prev, {
         id: `ai_${Date.now()}`,
         role: 'assistant',
         content: response,
         timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiMsg]);
+      }]);
     } catch {
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`,
@@ -101,74 +134,63 @@ export default function AIMentor() {
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
-
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
-
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setListening(false);
-      // Auto-send the voice message directly
-      sendMessage(transcript);
-    };
-
+    recognition.onresult = (e: any) => { setListening(false); sendMessage(e.results[0][0].transcript); };
     recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
-
+    recognition.onend   = () => setListening(false);
     recognitionRef.current = recognition;
     recognition.start();
     setListening(true);
   };
 
-  const stopListening = () => {
-    recognitionRef.current?.stop();
-    setListening(false);
-  };
+  const stopListening = () => { recognitionRef.current?.stop(); setListening(false); };
 
   const speakText = (text: string) => {
     if (!ttsSupported) return;
     window.speechSynthesis.cancel();
-
-    // Clean text for speech (remove markdown)
-    const cleanText = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/#+\s/g, '');
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 0.95;
-    utterance.pitch = 1;
-    utterance.onstart = () => setSpeaking(true);
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+    const clean = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/#+\s/g, '').replace(/•/g, '');
+    const utt = new SpeechSynthesisUtterance(clean);
+    utt.rate = 0.95;
+    utt.pitch = 1;
+    utt.onstart = () => setSpeaking(true);
+    utt.onend   = () => setSpeaking(false);
+    utt.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utt);
   };
 
-  const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
-    setSpeaking(false);
-  };
+  const stopSpeaking = () => { window.speechSynthesis.cancel(); setSpeaking(false); };
 
   const clearChat = () => {
     stopSpeaking();
-    const welcomeText = profile
-      ? `Hello ${profile.name}! How can I help you today?`
-      : "Hello! How can I help you with your career journey today?";
+    const welcomeText = profile ? `Hello ${profile.name}! How can I help you today?` : 'Hello! How can I help with your career journey?';
     setMessages([{ id: 'welcome', role: 'assistant', content: welcomeText, timestamp: new Date() }]);
   };
 
-  const formatMessage = (text: string) => {
-    return text
+  const formatMessage = (text: string) =>
+    text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/\n/g, '<br />');
-  };
+
+  // ── Sidebar stat helpers ─────────────────────────────────────────────────
+  const roadmapPct = sidebar.roadmapProgress
+    ? Math.round((sidebar.roadmapProgress.completed / sidebar.roadmapProgress.total) * 100)
+    : null;
+
+  const codingAccuracy = sidebar.codingProgress
+    ? Math.round((sidebar.codingProgress.solved / sidebar.codingProgress.attempted) * 100)
+    : null;
 
   return (
     <div className="page-layout">
       <Navbar />
       <div className="page-content mentor-page">
         <div className="mentor-layout">
-          {/* Sidebar */}
+
+          {/* ── Sidebar ── */}
           <div className="mentor-sidebar">
             <div className="mentor-profile-card">
               <div className="mentor-ai-icon">
@@ -183,9 +205,10 @@ export default function AIMentor() {
               </div>
             </div>
 
+            {/* Career Context snapshot */}
             {profile && (
               <div className="mentor-context-card">
-                <div className="mentor-context-label">Your Profile</div>
+                <div className="mentor-context-label">Career Context</div>
                 <div className="mentor-context-item">
                   <span>Target Role</span>
                   <strong>{profile.targetRole}</strong>
@@ -198,9 +221,53 @@ export default function AIMentor() {
                   <span>Branch</span>
                   <strong>{profile.branch.split('(')[0].trim()}</strong>
                 </div>
+                <div className="mentor-context-item">
+                  <span>Skills</span>
+                  <strong>{sidebar.skillCount > 0 ? `${sidebar.skillCount} identified` : 'Not assessed'}</strong>
+                </div>
               </div>
             )}
 
+            {/* Live progress snapshot */}
+            {profile && (
+              <div className="mentor-progress-card">
+                <div className="mentor-context-label">Live Progress</div>
+
+                <div className="mentor-stat-row">
+                  <FileText size={12} />
+                  <span>Resume</span>
+                  <strong className={sidebar.resumeScore !== null ? (sidebar.resumeScore >= 70 ? 'stat-good' : 'stat-warn') : 'stat-muted'}>
+                    {sidebar.resumeScore !== null ? `${sidebar.resumeScore}/100` : 'Not analyzed'}
+                  </strong>
+                </div>
+
+                <div className="mentor-stat-row">
+                  <Map size={12} />
+                  <span>Roadmap</span>
+                  <strong className={roadmapPct !== null ? (roadmapPct >= 50 ? 'stat-good' : 'stat-warn') : 'stat-muted'}>
+                    {roadmapPct !== null ? `${roadmapPct}% done` : 'Not started'}
+                  </strong>
+                </div>
+
+                <div className="mentor-stat-row">
+                  <Code2 size={12} />
+                  <span>Coding</span>
+                  <strong className={codingAccuracy !== null ? (codingAccuracy >= 60 ? 'stat-good' : 'stat-warn') : 'stat-muted'}>
+                    {sidebar.codingProgress ? `${sidebar.codingProgress.solved}/${sidebar.codingProgress.attempted} solved` : 'Not started'}
+                  </strong>
+                </div>
+
+                <div className="mentor-stat-row">
+                  <Briefcase size={12} />
+                  <span>Interview</span>
+                  <strong className={sidebar.lastInterviewScore !== null ? (sidebar.lastInterviewScore >= 60 ? 'stat-good' : 'stat-warn') : 'stat-muted'}>
+                    {sidebar.lastInterviewScore !== null ? `${sidebar.lastInterviewScore}%` : 'Not attempted'}
+                  </strong>
+                </div>
+              </div>
+            )}
+
+            {/* Quick questions */}
             <div className="mentor-suggestions-label">Quick Questions</div>
             {SUGGESTIONS.map(s => (
               <button
@@ -214,6 +281,18 @@ export default function AIMentor() {
               </button>
             ))}
 
+            {/* What the AI knows indicator */}
+            <div className="mentor-context-info">
+              <div className="mentor-context-info-title">Context available</div>
+              <div className="mentor-context-badges">
+                <span className={`ctx-badge ${profile ? 'active' : ''}`}><User size={10} /> Profile</span>
+                <span className={`ctx-badge ${resumeAnalysis.analyzed ? 'active' : ''}`}><FileText size={10} /> Resume</span>
+                <span className={`ctx-badge ${roadmapStages.length > 0 ? 'active' : ''}`}><Map size={10} /> Roadmap</span>
+                <span className={`ctx-badge ${codingStats.attempted > 0 ? 'active' : ''}`}><Code2 size={10} /> Coding</span>
+                <span className={`ctx-badge ${interviewHistory.length > 0 ? 'active' : ''}`}><Briefcase size={10} /> Interviews</span>
+              </div>
+            </div>
+
             <div className="mentor-actions">
               <button className="btn btn-ghost btn-sm" onClick={clearChat}>
                 <RotateCcw size={14} /> Clear Chat
@@ -221,25 +300,34 @@ export default function AIMentor() {
             </div>
           </div>
 
-          {/* Chat area */}
+          {/* ── Chat area ── */}
           <div className="mentor-chat">
             <div className="chat-header">
               <div className="chat-header-info">
                 <h2>AI Career Mentor</h2>
-                <p>Your personalized guide from learning to career readiness.</p>
+                <p>Personalized career intelligence — asks only for context it needs.</p>
               </div>
-              {ttsSupported && speaking && (
-                <button className="btn btn-ghost btn-sm" onClick={stopSpeaking}>
-                  <VolumeX size={14} /> Stop Speaking
-                </button>
-              )}
+              <div className="chat-header-right">
+                {/* Context awareness indicator */}
+                <div className="context-aware-badge">
+                  <CheckCircle size={12} />
+                  <span>Context-aware</span>
+                </div>
+                {ttsSupported && speaking && (
+                  <button className="btn btn-ghost btn-sm" onClick={stopSpeaking}>
+                    <VolumeX size={14} /> Stop
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="chat-messages">
               {messages.map(msg => (
                 <div key={msg.id} className={`message ${msg.role}`}>
                   <div className="message-avatar">
-                    {msg.role === 'assistant' ? <BrainCircuit size={16} /> : <User size={16} />}
+                    {msg.role === 'assistant'
+                      ? <BrainCircuit size={16} />
+                      : <User size={16} />}
                   </div>
                   <div className="message-bubble">
                     <div
@@ -249,11 +337,7 @@ export default function AIMentor() {
                     <div className="message-meta">
                       {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {msg.role === 'assistant' && ttsSupported && (
-                        <button
-                          className="speak-btn"
-                          onClick={() => speakText(msg.content)}
-                          title="Read aloud"
-                        >
+                        <button className="speak-btn" onClick={() => speakText(msg.content)} title="Read aloud">
                           <Volume2 size={12} />
                         </button>
                       )}
@@ -266,10 +350,13 @@ export default function AIMentor() {
                 <div className="message assistant">
                   <div className="message-avatar"><BrainCircuit size={16} /></div>
                   <div className="message-bubble typing">
-                    <div className="ai-dots">
-                      <div className="ai-dot" />
-                      <div className="ai-dot" />
-                      <div className="ai-dot" />
+                    <div className="typing-inner">
+                      <div className="ai-dots">
+                        <div className="ai-dot" />
+                        <div className="ai-dot" />
+                        <div className="ai-dot" />
+                      </div>
+                      <span className="typing-label">Analyzing your Career Hub data...</span>
                     </div>
                   </div>
                 </div>
@@ -288,7 +375,7 @@ export default function AIMentor() {
                 <input
                   type="text"
                   className="chat-input"
-                  placeholder="Ask me anything about your career, skills, or next steps..."
+                  placeholder="Ask about your career, skills, roadmap, projects, or interviews..."
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage(input))}
@@ -298,7 +385,7 @@ export default function AIMentor() {
                   <button
                     className={`btn voice-btn ${listening ? 'active' : ''}`}
                     onClick={listening ? stopListening : startListening}
-                    title={listening ? 'Stop listening' : 'Start voice input'}
+                    title={listening ? 'Stop listening' : 'Voice input'}
                   >
                     {listening ? <MicOff size={18} /> : <Mic size={18} />}
                   </button>
@@ -311,8 +398,13 @@ export default function AIMentor() {
                   <Send size={18} />
                 </button>
               </div>
+              <div className="input-hint">
+                <TrendingUp size={11} />
+                <span>Try: "What should I learn next?" · "Why is my resume score low?" · "What is Python?"</span>
+              </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>

@@ -15,7 +15,8 @@ const resumeRoutes = require('./routes/resume');
 const roadmapRoutes = require('./routes/roadmap');
 const interviewRoutes = require('./routes/interview');
 const mentorRoutes = require('./routes/mentor');
-const dashboardRoutes = require('./routes/dashboard');
+const dashboardRoutes  = require('./routes/dashboard');
+const feedbackRoutes   = require('./routes/feedback');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -61,6 +62,7 @@ app.use('/api/roadmap', roadmapRoutes);
 app.use('/api/interview', interviewRoutes);
 app.use('/api/mentor', mentorRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api', feedbackRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

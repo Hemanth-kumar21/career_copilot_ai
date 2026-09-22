@@ -14,6 +14,7 @@ import AIMentor from './pages/AIMentor';
 import InterviewLab from './pages/InterviewLab';
 import Dashboard from './pages/Dashboard';
 import NotFound from './pages/NotFound';
+import About from './pages/About';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useApp();
@@ -83,6 +84,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route path="/about" element={<About />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <ToastContainer />
